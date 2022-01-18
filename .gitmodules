@@ -1,0 +1,3 @@
+[submodule "Packages/UniBlazorCore"]
+	path = Packages/UniBlazorCore
+	url = https://github.com/vladthecibodev/UniBlazorCore
