@@ -1,4 +1,4 @@
-﻿namespace UniBlazorCore.Internal.Nuget
+﻿namespace Assets.Editor.Nuget
 {
     using System.Linq;
     using UnityEngine;

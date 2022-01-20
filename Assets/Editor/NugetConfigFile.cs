@@ -1,4 +1,4 @@
-﻿namespace UniBlazorCore.Internal.Nuget
+﻿namespace Assets.Editor.Nuget
 {
     using System.IO;
     using System.Xml.Linq;
@@ -18,7 +18,7 @@
 
         public static void LoadNugetConfig()
         {
-            XDocument nugetConfig = XDocument.Load(Path.Combine(Application.dataPath, "../nuget.config"));
+            XDocument nugetConfig = LoadConfigFile("nuget.config");
 
             // Get the <add /> element containing the "repositoryPath" key
             var repositoryPathQ =
@@ -45,5 +45,26 @@
 
             isLoaded = true;
         }
+
+        // Gets the array containing which nuget packages defined in packages.config
+        // Which are installed in the project
+        public static NugetPackageItem[] LoadListFromPackagesConfig()
+        {
+            XDocument packagesConfig = LoadConfigFile("packages.config");
+
+            // Select all XML "packages" elements describing a Nuget package
+            return (
+                from package in packagesConfig.Root.Elements("package")
+                select new NugetPackageItem()
+                {
+                    id = package.Attribute("id").Value,
+                    version = package.Attribute("version").Value,
+                }
+            ).ToArray();
+        }
+
+        private static XDocument LoadConfigFile(string filename) => XDocument.Load(
+            Path.Combine(Application.dataPath, $"../{filename}")
+        );
     }
 }
