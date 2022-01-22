@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
@@ -10,6 +11,13 @@ namespace Assets.Editor.Nuget
     // https://github.com/GlitchEnzo/NuGetForUnity/blob/master/Assets/NuGet/Editor/NugetHelper.cs
     internal class NugetPackagesCleanUp
     {
+        // TODO: This IS A HARDCODED value, not so cool
+        // The only ruleset to be kept from "Microsoft.CodeAnalysis.Analyzers"
+        private readonly static string RULESET_DEFAULT = 
+            $"AllRulesDefault.ruleset";
+        // The Unity expected Default ruleset name
+        private readonly static string RULESET_UNITY_DEFAULT = "Default";
+
         // The Asset path where all nuget packages live
         private readonly string nugetPkgsAssetPath;
         // The NugetPackage to be cleaned
@@ -114,6 +122,8 @@ namespace Assets.Editor.Nuget
             }
         }
 
+        // This is purely based on the folder structure of Microsoft.CodeAnalysis.Analyzers
+        // Nuget package, so it might apply nicely to other analyzers packages
         private void CleanAnalyzers(string packageAssetPath)
         {
             var analyzerPath = $"{packageAssetPath}/analyzers/dotnet";
@@ -127,6 +137,61 @@ namespace Assets.Editor.Nuget
             if (AssetDatabase.IsValidFolder(vbPath))
             {
                 AssetDatabase.DeleteAsset(vbPath);
+            }
+
+            // Keep only one ruleset from the rulesets path
+            CleanRulesets(packageAssetPath);
+            ProcessAnalyzerAssemblies(analyzerPath);
+        }
+
+        // Unity does not like multiple rulesets in the same folder
+        // Keep the default ruleset for now and remove the rest
+        private void CleanRulesets(string packageAssetPath)
+        {
+            var rulesetsPath = $"{packageAssetPath}/rulesets";
+            var allRulesetsPath = ListAllAssetsAtPath(rulesetsPath);
+
+            string rulesetDefaultPath = string.Empty;
+            foreach (var rulesetPath in allRulesetsPath)
+            {
+                if (rulesetPath.EndsWith(RULESET_DEFAULT))
+                {
+                    rulesetDefaultPath = rulesetPath;
+                    continue;
+                }
+
+                // The ruleset has already been renamed, do not remove it
+                if (rulesetPath.EndsWith($"/{RULESET_UNITY_DEFAULT}.ruleset"))
+                {
+                    continue;
+                }
+
+                AssetDatabase.DeleteAsset(rulesetPath);
+            }
+
+            if (string.IsNullOrEmpty(rulesetDefaultPath))
+            {
+                return;
+            }
+
+            // The name of the ruleset expected by Unity should be Default
+            AssetDatabase.RenameAsset(rulesetDefaultPath, RULESET_UNITY_DEFAULT);
+        }
+
+        // Process the analyzers dlls
+        private void ProcessAnalyzerAssemblies(string analyzerPath)
+        {
+            var analyzerAssemblies = ListAllAssetsAtPath($"{analyzerPath}/cs");
+
+            foreach (var analyzerAssemblyPath in analyzerAssemblies)
+            {
+                // TODO: Copy analyzer assemblies to Assets and
+                // add give all the DLLs a new Asset Label called RoslynAnalyzer
+                // Check if this should be done on package import or postprocess assets
+                // Anyhow, it needs to be moved to a script inside the package
+
+                // TODO: "Select platforms for plugin" - all checkboxes should be unticked
+                Debug.LogWarning($"{analyzerAssemblyPath} needs to be moved inside Assets!");
             }
         }
 
@@ -152,5 +217,11 @@ namespace Assets.Editor.Nuget
 
         private Action<string> AssetRemover(string packageAssetPath) => 
             (relativePath) => AssetDatabase.DeleteAsset($"{packageAssetPath}/{relativePath}");
+
+        // Lists the complete paths of the child assets sitting inside the folder referenced by path
+        private IEnumerable<string> ListAllAssetsAtPath(string path) => 
+            AssetDatabase
+                .FindAssets("*", new[] { path })
+                .Select(guid => AssetDatabase.GUIDToAssetPath(guid));
     }
 }
